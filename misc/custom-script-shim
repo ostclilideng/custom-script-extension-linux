@@ -21,13 +21,11 @@ status_file_path() {
             exit 1
         fi
         status_file=$(echo $config_file | sed s/settings/status/)
-        if [[ "$OS" == "Linux" ]]; then 
-            readlink -f "$status_dir/$status_file"
-        else
-            if [[ "$OS" == "FreeBSD" ]]; then
-                        echo "$status_dir/$status_file"
-            fi 
-	fi
+        # readlink returns nothing, and exit code is -1 when the path is not existed in FreeBSD
+        if [[ "$OS" == "FreeBSD" ]]; then
+            echo "$status_dir/$status_file"
+        fi
+        readlink -f "$status_dir/$status_file"
 }
 
 write_status() {
@@ -36,13 +34,11 @@ write_status() {
 		echo "Not writing a placeholder status file, already exists: $status_file"
 	else
 		echo "Writing a placeholder status file indicating progress before forking: $status_file"
-		if [[ "$OS" == "Linux" ]]; then
-			timestamp="$(date --utc --iso-8601=seconds)"
-		else
-			if [[ "$OS" == "FreeBSD" ]]; then
-				timestamp="$(date -u '+%Y-%m-%dT%k:%M:%S%z')"
-			fi
+		time='date --utc --iso-8601=seconds'
+		if [[ "$OS" == "FreeBSD" ]]; then
+			time='date -u '+%Y-%m-%dT%k:%M:%S%z''
 		fi
+		timestamp=$($time)
 		cat > "$status_file" <<- EOF
 			[
 				{
@@ -68,6 +64,7 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
+# Bash requires fdescfs(5) mounted on /dev/fd on FreeBSD, if it's already mounted, calling this won't fail
 if [[ "$OS" == "FreeBSD" ]]; then
     mount -t fdescfs fdesc /dev/fd
 fi
@@ -93,5 +90,3 @@ else
     set -x
     "$bin" $@
 fi
-
-
